@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QS-Code-Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>QS-Code-Dashboard</h1>
+            <p class="subtitle">Spezifikationslisten &amp; Rechenregellisten</p>
+        </div>
+    </header>
+
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Dashboard wird geladen...</p>
+    </div>
+
+    <div id="app" class="hidden">
+        <!-- Global Filters -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>Kontext</label>
+                <div class="toggle-group" id="kontext-filter">
+                    <button class="toggle active" data-value="Alle">Alle</button>
+                    <button class="toggle" data-value="Spezifikation">Spezifikation</button>
+                    <button class="toggle" data-value="Rechenregel">Rechenregel</button>
+                </div>
+            </div>
+            <div class="filter-group">
+                <label>Quelle</label>
+                <div class="toggle-group" id="quelle-filter">
+                    <button class="toggle active" data-value="Alle">Alle</button>
+                    <button class="toggle" data-value="QSF">QSF</button>
+                    <button class="toggle" data-value="SDAT">SDAT</button>
+                    <button class="toggle" data-value="QIDB">QIDB</button>
+                </div>
+            </div>
+            <div class="filter-group">
+                <label>Nur DeQS-RL</label>
+                <button class="toggle-switch active" id="deqs-toggle">An</button>
+            </div>
+            <div class="filter-group">
+                <label>Jahr</label>
+                <select id="year-select"></select>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid" id="stats-grid"></div>
+
+        <!-- Tabs -->
+        <div class="card">
+            <div class="tab-bar">
+                <button class="tab active" data-tab="analyse">Analyse</button>
+                <button class="tab" data-tab="verfahren">Verfahren</button>
+                <button class="tab" data-tab="module">Module</button>
+                <button class="tab" data-tab="listen">Listen</button>
+                <button class="tab" data-tab="codesuche">Code-Suche</button>
+            </div>
+
+            <div class="tab-content active" id="tab-analyse">
+                <div class="chart-grid">
+                    <div class="chart-box" id="chart-verfahren-codes"></div>
+                    <div class="chart-box" id="chart-overlap"></div>
+                    <div class="chart-box full-width" id="chart-treemap"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-verfahren">
+                <table class="data-table" id="verfahren-table">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="tab-content" id="tab-module">
+                <div class="tab-filters">
+                    <input type="text" class="search-input" id="module-search" placeholder="Modul suchen...">
+                    <select id="module-verfahren-filter"><option value="">Alle Verfahren</option></select>
+                    <select id="module-quelle-filter"><option value="">Alle Quellen</option></select>
+                </div>
+                <table class="data-table" id="module-table">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="tab-content" id="tab-listen">
+                <div class="tab-filters">
+                    <input type="text" class="search-input" id="listen-search" placeholder="Liste suchen...">
+                    <select id="listen-kontext-filter"><option value="">Alle Kontexte</option></select>
+                    <select id="listen-codetyp-filter"><option value="">Alle Code-Typen</option></select>
+                    <select id="listen-typ-filter"><option value="">Alle Typen</option></select>
+                    <select id="listen-quelle-filter"><option value="">Alle Quellen</option></select>
+                </div>
+                <table class="data-table" id="listen-table">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+                <div id="listen-pagination" class="pagination"></div>
+            </div>
+
+            <div class="tab-content" id="tab-codesuche">
+                <div class="tab-filters">
+                    <input type="text" class="search-input" id="code-search" placeholder="Code oder Bezeichnung suchen (min. 2 Zeichen)...">
+                    <select id="code-codetyp-filter"><option value="">Alle Code-Typen</option></select>
+                    <select id="code-kontext-filter"><option value="">Alle Kontexte</option></select>
+                    <select id="code-quelle-filter"><option value="">Alle Quellen</option></select>
+                </div>
+                <div class="pill-group" id="code-pills">
+                    <button class="pill active" data-filter="all">Alle</button>
+                    <button class="pill" data-filter="multi-verfahren">In &gt;1 Verfahren</button>
+                    <button class="pill" data-filter="beide-kontexte">Spez + RR</button>
+                </div>
+                <table class="data-table" id="code-table">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+                <div id="code-pagination" class="pagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modal-title"></h2>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
