@@ -41,17 +41,25 @@ def lade_kodes(typ, jahr):
 
 
 def lookup_code(code, typ, check_years, all_years):
-    """Look up a code. Return (bezeichnung, {year: bool}, letzte_gueltigkeit)."""
+    """Look up a code. Return (bezeichnung, {year: bool}, letzte_gueltigkeit).
+    For wildcard codes (ending with %), strip suffix and look up the base code."""
+    # Strip laterality (:L/:R/:B) and % wildcard suffix for catalog lookup
+    lookup = code
+    if lookup[-2:] in (':L', ':R', ':B', ':l', ':r', ':b'):
+        lookup = lookup[:-2]
+    if lookup.endswith('%'):
+        lookup = lookup[:-1]
+
     gueltigkeit = {}
     bezeichnung = None
 
     # Check each year in the validity window
     for y in check_years:
         kodes = lade_kodes(typ, str(y))
-        if code in kodes:
+        if lookup in kodes:
             gueltigkeit[str(y)] = True
             if bezeichnung is None:
-                bezeichnung = kodes[code]
+                bezeichnung = kodes[lookup]
         else:
             gueltigkeit[str(y)] = False
 
@@ -61,8 +69,8 @@ def lookup_code(code, typ, check_years, all_years):
             if str(y) in [str(cy) for cy in check_years]:
                 continue
             kodes = lade_kodes(typ, str(y))
-            if code in kodes:
-                bezeichnung = kodes[code]
+            if lookup in kodes:
+                bezeichnung = kodes[lookup]
                 break
 
     # Determine letzte_gueltigkeit (most recent year where valid)
@@ -78,7 +86,7 @@ def lookup_code(code, typ, check_years, all_years):
             if ys in gueltigkeit:
                 continue
             kodes = lade_kodes(typ, ys)
-            if code in kodes:
+            if lookup in kodes:
                 letzte = ys
                 break
 

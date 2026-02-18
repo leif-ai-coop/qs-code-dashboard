@@ -275,8 +275,16 @@ def normalize_icd_code(code):
     return cleaned + suffix
 
 
+def strip_laterality(code):
+    """Strip laterality suffixes :L, :R, :B from code."""
+    if code and len(code) > 2 and code[-2:] in (':L', ':R', ':B', ':l', ':r', ':b'):
+        return code[:-2]
+    return code
+
+
 def normalize_code(code, code_type):
-    """Normalize a code based on its type."""
+    """Normalize a code based on its type. Strips laterality suffixes."""
+    code = strip_laterality(code)
     if code_type == 'ops':
         return normalize_ops_code(code)
     elif code_type == 'icd':
@@ -367,13 +375,13 @@ def parse_qsf(qsf_mdb, year):
     for row in ops_wert_rows:
         list_name = ops_list_id_to_name.get(row['fkOPSListe'], '')
         if list_name and row['code']:
-            ops_list_codes[list_name].append(row['code'])
+            ops_list_codes[list_name].append(normalize_ops_code(strip_laterality(row['code'])))
 
     icd_list_codes = defaultdict(list)
     for row in icd_wert_rows:
         list_name = icd_list_id_to_name.get(row['fkICDListe'], '')
         if list_name and row['code']:
-            icd_list_codes[list_name].append(row['code'])
+            icd_list_codes[list_name].append(normalize_icd_code(strip_laterality(row['code'])))
 
     # EBM (GOP) lookups
     ebm_list_id_to_name = {}
