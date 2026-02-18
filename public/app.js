@@ -48,6 +48,18 @@ function typBadge(t) {
     return badge('unbekannt', t);
 }
 
+function gueltigkeitBadges(katalog) {
+    if (!katalog?.gueltigkeit) return '';
+    const g = katalog.gueltigkeit;
+    const years = Object.keys(g).sort().reverse(); // newest first
+    return years.map(y => {
+        const v = g[y];
+        if (v === true) return `<span class="badge badge-ein" title="Gueltig ${y}" style="font-size:0.65rem">${y}</span>`;
+        if (v === false) return `<span class="badge badge-aus" title="Nicht gueltig ${y}" style="font-size:0.65rem;opacity:0.5">${y}</span>`;
+        return '';
+    }).join(' ');
+}
+
 function isDeqs(name) {
     return name.startsWith('QS ');
 }
@@ -575,6 +587,12 @@ function renderCodeTable() {
     // Pills
     if (state.codeFilter === 'multi-verfahren') rows = rows.filter(c => c.anzahl_verfahren > 1);
     if (state.codeFilter === 'beide-kontexte') rows = rows.filter(c => c.kontext?.includes('Spezifikation') && c.kontext?.includes('Rechenregel'));
+    if (state.codeFilter === 'nicht-gueltig') rows = rows.filter(c => {
+        const g = c.katalog?.gueltigkeit;
+        if (!g) return false;
+        const primaryYear = String(CURRENT_YEAR);
+        return g[primaryYear] === false;
+    });
 
     const sortKey = state.sortCol.code || 'code';
     const dir = state.sortDir.code || 1;
@@ -596,6 +614,7 @@ function renderCodeTable() {
         { key: 'bezeichnung', label: 'Bezeichnung', fn: c => c.katalog?.bezeichnung || '' },
         { key: 'anzahl_listen', label: 'Listen', num: true },
         { key: 'anzahl_verfahren', label: 'Verfahren', num: true },
+        { key: 'gueltigkeit', label: 'Gueltigkeit', fn: c => gueltigkeitBadges(c.katalog) },
         { key: 'kontext', label: 'Kontext', fn: c => kontextBadge(c.kontext) },
         { key: 'quelle', label: 'Quelle', fn: c => (c.quelle || []).map(quelleBadge).join(' ') },
     ];
@@ -871,10 +890,10 @@ function openListeModal(name, codeTyp) {
     html += `<p>${l.bezeichnung || ''}</p>`;
 
     html += `<div class="detail-section"><h3>Codes (${l.codes.length})</h3>`;
-    html += '<table class="data-table"><thead><tr><th>Code</th><th>Bezeichnung</th></tr></thead><tbody>';
+    html += '<table class="data-table"><thead><tr><th>Code</th><th>Bezeichnung</th><th>Gueltigkeit</th></tr></thead><tbody>';
     l.codes.forEach(code => {
         const ci = DATA.codes[codeTyp]?.[code];
-        html += `<tr><td>${code}</td><td>${ci?.katalog?.bezeichnung || ''}</td></tr>`;
+        html += `<tr><td>${code}</td><td>${ci?.katalog?.bezeichnung || ''}</td><td>${gueltigkeitBadges(ci?.katalog)}</td></tr>`;
     });
     html += '</tbody></table></div>';
 
@@ -885,7 +904,7 @@ function openCodeModal(code, codeTyp) {
     const c = DATA.codes[codeTyp]?.[code];
     if (!c) return;
 
-    let html = `<div class="badge-row">${(c.quelle || []).map(quelleBadge).join(' ')} ${kontextBadge(c.kontext)}</div>`;
+    let html = `<div class="badge-row">${(c.quelle || []).map(quelleBadge).join(' ')} ${kontextBadge(c.kontext)} ${gueltigkeitBadges(c.katalog)}</div>`;
     html += `<p><strong>${code}</strong> (${codeTyp.toUpperCase()})${c.katalog?.bezeichnung ? ' — ' + c.katalog.bezeichnung : ''}</p>`;
 
     html += `<div class="detail-section"><h3>Verwendung (${c.verwendung.length})</h3>`;
