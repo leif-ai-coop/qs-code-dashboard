@@ -367,13 +367,13 @@ def parse_qsf(qsf_mdb, year):
     for row in ops_wert_rows:
         list_name = ops_list_id_to_name.get(row['fkOPSListe'], '')
         if list_name and row['code']:
-            ops_list_codes[list_name].append(normalize_ops_code(row['code']))
+            ops_list_codes[list_name].append(row['code'])
 
     icd_list_codes = defaultdict(list)
     for row in icd_wert_rows:
         list_name = icd_list_id_to_name.get(row['fkICDListe'], '')
         if list_name and row['code']:
-            icd_list_codes[list_name].append(normalize_icd_code(row['code']))
+            icd_list_codes[list_name].append(row['code'])
 
     # EBM (GOP) lookups
     ebm_list_id_to_name = {}
@@ -578,7 +578,8 @@ def parse_qsf(qsf_mdb, year):
         verfahren = QSF_MODULE_VERFAHREN.get(modul_name, '')
         for liste_name in usage['ops_ein']:
             for code in ops_list_codes[liste_name]:
-                cd = qsf_ops_codes[code]
+                ncode = normalize_ops_code(code)
+                cd = qsf_ops_codes[ncode]
                 cd['rollen'].add('EINSIN')
                 cd['listen'].add(liste_name)
                 cd['module'].add(modul_name)
@@ -586,7 +587,8 @@ def parse_qsf(qsf_mdb, year):
                 cd['verwendung'].append({'verfahren': verfahren, 'modul': modul_name, 'liste': liste_name, 'rolle': 'EINSIN', 'quelle': 'QSF', 'kontext': 'Spezifikation'})
         for liste_name in usage['ops_aus']:
             for code in ops_list_codes[liste_name]:
-                cd = qsf_ops_codes[code]
+                ncode = normalize_ops_code(code)
+                cd = qsf_ops_codes[ncode]
                 cd['rollen'].add('KEINSIN')
                 cd['listen'].add(liste_name)
                 cd['module'].add(modul_name)
@@ -594,7 +596,8 @@ def parse_qsf(qsf_mdb, year):
                 cd['verwendung'].append({'verfahren': verfahren, 'modul': modul_name, 'liste': liste_name, 'rolle': 'KEINSIN', 'quelle': 'QSF', 'kontext': 'Spezifikation'})
         for liste_name in usage['icd_ein']:
             for code in icd_list_codes[liste_name]:
-                cd = qsf_icd_codes[code]
+                ncode = normalize_icd_code(code)
+                cd = qsf_icd_codes[ncode]
                 cd['rollen'].add('EINSIN')
                 cd['listen'].add(liste_name)
                 cd['module'].add(modul_name)
@@ -602,7 +605,8 @@ def parse_qsf(qsf_mdb, year):
                 cd['verwendung'].append({'verfahren': verfahren, 'modul': modul_name, 'liste': liste_name, 'rolle': 'EINSIN', 'quelle': 'QSF', 'kontext': 'Spezifikation'})
         for liste_name in usage['icd_aus']:
             for code in icd_list_codes[liste_name]:
-                cd = qsf_icd_codes[code]
+                ncode = normalize_icd_code(code)
+                cd = qsf_icd_codes[ncode]
                 cd['rollen'].add('KEINSIN')
                 cd['listen'].add(liste_name)
                 cd['module'].add(modul_name)
@@ -695,8 +699,13 @@ def parse_sdat(sdat_mdb, year, qsf_module_names):
         if list_name.startswith('BSP_'):
             continue
         code = row['code']
+        # Format OPS codes for readability (insert hyphen/dot) — this was
+        # the original behavior. The raw MDB stores compact forms like "551101".
         code_type = detect_code_type(list_name)
-        code = normalize_code(code, code_type)
+        if code_type == 'ops':
+            code = normalize_ops_code(code)
+        elif code_type == 'icd':
+            code = normalize_icd_code(code)
         sdat_list_codes[list_name].append(code)
 
     # Parse filter expressions — use year as erfassungsjahr
@@ -832,7 +841,8 @@ def parse_sdat(sdat_mdb, year, qsf_module_names):
         for ct in CODE_TYPES:
             for liste_name in usage[ct]['ein']:
                 for code in sdat_list_codes[liste_name]:
-                    cd = sdat_codes[ct][code]
+                    ncode = normalize_code(code, ct)
+                    cd = sdat_codes[ct][ncode]
                     cd['rollen'].add('EINSIN')
                     cd['listen'].add(liste_name)
                     cd['module'].add(display)
@@ -840,7 +850,8 @@ def parse_sdat(sdat_mdb, year, qsf_module_names):
                     cd['verwendung'].append({'verfahren': verfahren, 'modul': display, 'liste': liste_name, 'rolle': 'EINSIN', 'quelle': 'SDAT', 'kontext': 'Spezifikation'})
             for liste_name in usage[ct]['aus']:
                 for code in sdat_list_codes[liste_name]:
-                    cd = sdat_codes[ct][code]
+                    ncode = normalize_code(code, ct)
+                    cd = sdat_codes[ct][ncode]
                     cd['rollen'].add('KEINSIN')
                     cd['listen'].add(liste_name)
                     cd['module'].add(display)
@@ -884,9 +895,6 @@ def parse_qidb(csv_path, year):
         code = row['code_norm']
         if not ln or not code:
             continue
-        # Normalize code based on type
-        code_type = QIDB_TYP_MAP.get(row.get('typ', ''), 'sonstige')
-        code = normalize_code(code, code_type)
         ld = qidb_listen_data[ln]
         ld['codes'].append(code)
         if not ld['typ']:
@@ -935,9 +943,10 @@ def parse_qidb(csv_path, year):
 
         qidb_verfahren_listen[qs_verfahren].append(list_name)
 
-        # Build code index
+        # Build code index (normalized keys for search/lookup)
         for code in codes:
-            cd = qidb_codes[code_type][code]
+            ncode = normalize_code(code, code_type)
+            cd = qidb_codes[code_type][ncode]
             cd['listen'].add(list_name)
             if qs_verfahren:
                 cd['verfahren'].add(qs_verfahren)
