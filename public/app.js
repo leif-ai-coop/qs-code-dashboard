@@ -22,6 +22,37 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 const fmt = (n) => Number(n).toLocaleString('de-DE');
 
+// Code normalization for search — allows users to search with any format
+function normalizeSearchCode(input) {
+    const raw = input.replace(/[^A-Za-z0-9.\-]/g, '');
+    if (!raw) return input;
+    // ICD: starts with letter
+    if (/^[A-Za-z]\d/.test(raw)) {
+        let c = raw[0].toUpperCase() + raw.slice(1).toLowerCase();
+        if (!c.includes('.') && c.length > 3 && /^[A-Z]\d{2}/.test(c))
+            c = c.slice(0, 3) + '.' + c.slice(3);
+        return c;
+    }
+    // OPS: starts with digit
+    if (/^\d/.test(raw)) {
+        let c = raw;
+        if (c.includes('-') && c.includes('.')) return c;
+        let m;
+        if ((m = c.match(/^(\d)(\d{3})(\d+)$/))) return `${m[1]}-${m[2]}.${m[3]}`;
+        if ((m = c.match(/^(\d)(\d{3})([a-zA-Z]{1,2})$/))) return `${m[1]}-${m[2]}.${m[3]}`;
+        if ((m = c.match(/^(\d)(\d{3})([a-zA-Z])(\d{1,2})$/))) return `${m[1]}-${m[2]}.${m[3]}${m[4]}`;
+        if ((m = c.match(/^(\d)-?(\d+)([a-zA-Z])(\d+)$/))) {
+            return m[2].length >= 3 ? `${m[1]}-${m[2]}.${m[3]}${m[4]}` : `${m[1]}-${m[2]}${m[3]}.${m[4]}`;
+        }
+        if ((m = c.match(/^(\d)(\d{3})(.+)$/)) && /[a-zA-Z]/.test(m[3]) && !c.includes('.') && !c.includes('-'))
+            return `${m[1]}-${m[2]}.${m[3]}`;
+        if (!c.includes('-') && c[0].match(/\d/) && c.length > 1) c = c[0] + '-' + c.slice(1);
+        if (!c.includes('.') && c.length > 5 && (m = c.match(/^(\d-\d{3})(.+)$/))) c = `${m[1]}.${m[2]}`;
+        return c;
+    }
+    return input;
+}
+
 function badge(cls, text) {
     return `<span class="badge badge-${cls}">${text}</span>`;
 }
@@ -575,8 +606,10 @@ function renderCodeTable() {
     });
 
     if (search && search.length >= 2) {
+        const normalized = normalizeSearchCode(search).toLowerCase();
         rows = rows.filter(c =>
             c.code.toLowerCase().includes(search) ||
+            c.code.toLowerCase().includes(normalized) ||
             (c.katalog?.bezeichnung || '').toLowerCase().includes(search)
         );
     }

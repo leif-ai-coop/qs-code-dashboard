@@ -147,16 +147,141 @@ def role_to_typ(roles_set):
         return 'Unbekannt'
 
 
-def convert_ops_code(code):
-    if not code or '-' in code:
+def normalize_ops_code(code):
+    """Normalize OPS code to canonical D-DDD.SS format.
+    Handles compact forms, missing hyphens/dots, wildcard suffixes (%).
+    Port of KlarCode's normalizeOPSCode logic."""
+    if not code:
         return code
-    if len(code) <= 1:
+
+    # Preserve wildcard suffix
+    suffix = ''
+    raw = code
+    if raw.endswith('%'):
+        suffix = '%'
+        raw = raw[:-1]
+
+    # Strip non-alphanumeric except . and -
+    raw = re.sub(r'[^A-Za-z0-9.\-]', '', raw)
+
+    if not raw or not raw[0].isdigit():
+        return code  # Not an OPS code
+
+    # Already well-formed (has both hyphen and dot)
+    if '-' in raw and '.' in raw:
+        return raw + suffix
+
+    # Pattern: D + DD + letter + alphanumeric suffix (e.g. "579a1q" → "5-79a.1q")
+    m = re.match(r'^(\d)(\d{2})([a-zA-Z])([0-9a-zA-Z]+)$', raw)
+    if m:
+        return f'{m[1]}-{m[2]}{m[3]}.{m[4]}{suffix}'
+
+    # Pattern: D + DD + letter, no trailing (e.g. "598c" → "5-98c")
+    m = re.match(r'^(\d)(\d{2})([a-zA-Z])$', raw)
+    if m:
+        return f'{m[1]}-{m[2]}{m[3]}{suffix}'
+
+    # Pure numeric: D + DDD + D+ (e.g. "53780" → "5-378.0")
+    m = re.match(r'^(\d)(\d{3})(\d+)$', raw)
+    if m:
+        return f'{m[1]}-{m[2]}.{m[3]}{suffix}'
+
+    # Numeric + letter suffix: D + DDD + 1-2 letters (e.g. "5378a" → "5-378.a")
+    m = re.match(r'^(\d)(\d{3})([a-zA-Z]{1,2})$', raw)
+    if m:
+        return f'{m[1]}-{m[2]}.{m[3]}{suffix}'
+
+    # Mixed: D + DDD + letter + digits (e.g. "5378a2" → "5-378.a2")
+    m = re.match(r'^(\d)(\d{3})([a-zA-Z])(\d{1,2})$', raw)
+    if m:
+        return f'{m[1]}-{m[2]}.{m[3]}{m[4]}{suffix}'
+
+    # With/without hyphen + letter + number (e.g. "5378b8" or "5-378b8" → "5-378.b8")
+    m = re.match(r'^(\d)-?(\d+)([a-zA-Z])(\d+)$', raw)
+    if m:
+        if len(m[2]) >= 3:
+            return f'{m[1]}-{m[2]}.{m[3]}{m[4]}{suffix}'
+        else:
+            return f'{m[1]}-{m[2]}{m[3]}.{m[4]}{suffix}'
+
+    # Compact with trailing letter: DDDDD+letter+rest (e.g. "53822x" → "5-382.2x")
+    if re.match(r'^\d{4,}[a-zA-Z]', raw) and '.' not in raw and '-' not in raw:
+        m = re.match(r'^(\d)(\d{3})(.+)$', raw)
+        if m:
+            return f'{m[1]}-{m[2]}.{m[3]}{suffix}'
+
+    # Hyphen present, no dot, numeric suffix (e.g. "3-0550" → "3-055.0")
+    if '.' not in raw and re.match(r'^\d-\d{3,}[a-zA-Z]?\d+$', raw):
+        m = re.match(r'^(\d-\d{3,}[a-zA-Z]?)(\d+)$', raw)
+        if m:
+            return f'{m[1]}.{m[2]}{suffix}'
+
+    # No hyphen but has dot (e.g. "5378.b8" → "5-378.b8")
+    if '-' not in raw and '.' in raw and raw[0].isdigit():
+        return raw[0] + '-' + raw[1:] + suffix
+
+    # Has hyphen, no dot, letter after digits (e.g. "5-378b8" → "5-378.b8")
+    m = re.match(r'^(\d-\d+)([a-zA-Z])([0-9a-zA-Z]*)$', raw)
+    if m and '.' not in raw:
+        return f'{m[1]}.{m[2]}{m[3]}{suffix}'
+
+    # Short base without dot (e.g. "5378" → "5-378", "5-378" stays)
+    if '-' not in raw and raw[0].isdigit() and len(raw) > 1:
+        raw = raw[0] + '-' + raw[1:]
+
+    # Insert dot after D-DDD if missing and long enough
+    if '.' not in raw and len(raw) > 5:
+        m = re.match(r'^(\d-\d{3})(.+)$', raw)
+        if m:
+            raw = f'{m[1]}.{m[2]}'
+
+    return raw + suffix
+
+
+def normalize_icd_code(code):
+    """Normalize ICD code: uppercase first char, insert dot after position 3.
+    Handles wildcard suffixes (%). Port of KlarCode's formatICDCode logic."""
+    if not code:
         return code
-    chapter = code[0]
-    rest = code[1:]
-    if len(rest) <= 3:
-        return chapter + '-' + rest
-    return chapter + '-' + rest[:3] + '.' + rest[3:]
+
+    # Preserve wildcard suffix
+    suffix = ''
+    raw = code
+    if raw.endswith('%'):
+        suffix = '%'
+        raw = raw[:-1]
+
+    # Strip non-alphanumeric except . and -
+    cleaned = re.sub(r'[^A-Za-z0-9.\-]', '', raw)
+
+    if not cleaned or not cleaned[0].isalpha():
+        return code  # Not an ICD code
+
+    # Must look like an ICD code: letter + digits (+ optional dot + more)
+    if not re.match(r'^[A-Za-z]\d', cleaned):
+        return code  # Not a plausible ICD code (e.g. German text)
+
+    # Uppercase first char
+    cleaned = cleaned[0].upper() + cleaned[1:]
+
+    # Already has dot
+    if '.' in cleaned:
+        return cleaned + suffix
+
+    # Insert dot after position 3 for codes > 3 chars (e.g. "A001" → "A00.1")
+    if len(cleaned) > 3 and re.match(r'^[A-Z]\d{2}', cleaned):
+        cleaned = cleaned[:3] + '.' + cleaned[3:]
+
+    return cleaned + suffix
+
+
+def normalize_code(code, code_type):
+    """Normalize a code based on its type."""
+    if code_type == 'ops':
+        return normalize_ops_code(code)
+    elif code_type == 'icd':
+        return normalize_icd_code(code)
+    return code
 
 
 def detect_code_type(list_name):
@@ -242,13 +367,13 @@ def parse_qsf(qsf_mdb, year):
     for row in ops_wert_rows:
         list_name = ops_list_id_to_name.get(row['fkOPSListe'], '')
         if list_name and row['code']:
-            ops_list_codes[list_name].append(row['code'])
+            ops_list_codes[list_name].append(normalize_ops_code(row['code']))
 
     icd_list_codes = defaultdict(list)
     for row in icd_wert_rows:
         list_name = icd_list_id_to_name.get(row['fkICDListe'], '')
         if list_name and row['code']:
-            icd_list_codes[list_name].append(row['code'])
+            icd_list_codes[list_name].append(normalize_icd_code(row['code']))
 
     # EBM (GOP) lookups
     ebm_list_id_to_name = {}
@@ -571,8 +696,7 @@ def parse_sdat(sdat_mdb, year, qsf_module_names):
             continue
         code = row['code']
         code_type = detect_code_type(list_name)
-        if code_type == 'ops':
-            code = convert_ops_code(code)
+        code = normalize_code(code, code_type)
         sdat_list_codes[list_name].append(code)
 
     # Parse filter expressions — use year as erfassungsjahr
@@ -760,6 +884,9 @@ def parse_qidb(csv_path, year):
         code = row['code_norm']
         if not ln or not code:
             continue
+        # Normalize code based on type
+        code_type = QIDB_TYP_MAP.get(row.get('typ', ''), 'sonstige')
+        code = normalize_code(code, code_type)
         ld = qidb_listen_data[ln]
         ld['codes'].append(code)
         if not ld['typ']:
