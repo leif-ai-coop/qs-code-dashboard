@@ -38,7 +38,6 @@
                     <button class="toggle active" data-value="Alle">Alle</button>
                     <button class="toggle" data-value="QSF">QSF</button>
                     <button class="toggle" data-value="SDAT">SDAT</button>
-                    <button class="toggle" data-value="QIDB">QIDB</button>
                 </div>
             </div>
             <div class="filter-group">
@@ -66,9 +65,53 @@
 
             <div class="tab-content active" id="tab-analyse">
                 <div class="chart-grid">
-                    <div class="chart-box" id="chart-verfahren-codes"></div>
-                    <div class="chart-box" id="chart-overlap"></div>
-                    <div class="chart-box full-width" id="chart-treemap"></div>
+                    <div class="chart-card">
+                        <h3>Code-Typen pro Verfahren</h3>
+                        <div id="chart-stacked-bar"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3 style="display:flex;justify-content:space-between;align-items:center;">Code-Ueberlappung zwischen Verfahren <button onclick="openChordFullscreen()" style="background:none;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:1rem;padding:0.1rem 0.4rem;color:var(--text-light);" title="Vollbild">&#10530;</button></h3>
+                        <div class="filter-pills" id="chord-type-filter">
+                            <span class="filter-pill active" data-typ="" onclick="setChartType('chord','')">Alle</span>
+                            <span class="filter-pill" data-typ="ops" onclick="setChartType('chord','ops')">OPS</span>
+                            <span class="filter-pill" data-typ="icd" onclick="setChartType('chord','icd')">ICD</span>
+                            <span class="filter-pill" data-typ="gop" onclick="setChartType('chord','gop')">GOP</span>
+                            <span class="filter-pill" data-typ="pzn" onclick="setChartType('chord','pzn')">PZN</span>
+                            <span class="filter-pill" data-typ="drg" onclick="setChartType('chord','drg')">DRG</span>
+                            <span class="filter-pill" data-typ="sonstige" onclick="setChartType('chord','sonstige')">Sonstige</span>
+                        </div>
+                        <div id="chart-chord"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Heatmap: Module x Code-Typen</h3>
+                        <div id="chart-heatmap" class="chart-scroll"></div>
+                    </div>
+                    <div class="chart-card chart-full">
+                        <h3>Verfahren-Hierarchie (Treemap)</h3>
+                        <div class="filter-pills" id="treemap-type-filter">
+                            <span class="filter-pill active" data-typ="" onclick="setChartType('treemap','')">Alle</span>
+                            <span class="filter-pill" data-typ="ops" onclick="setChartType('treemap','ops')">OPS</span>
+                            <span class="filter-pill" data-typ="icd" onclick="setChartType('treemap','icd')">ICD</span>
+                            <span class="filter-pill" data-typ="gop" onclick="setChartType('treemap','gop')">GOP</span>
+                            <span class="filter-pill" data-typ="pzn" onclick="setChartType('treemap','pzn')">PZN</span>
+                            <span class="filter-pill" data-typ="drg" onclick="setChartType('treemap','drg')">DRG</span>
+                            <span class="filter-pill" data-typ="sonstige" onclick="setChartType('treemap','sonstige')">Sonstige</span>
+                        </div>
+                        <div id="chart-treemap"></div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Code-Sharing Netzwerk</h3>
+                        <div class="filter-pills" id="network-type-filter">
+                            <span class="filter-pill active" data-typ="" onclick="setChartType('network','')">Alle</span>
+                            <span class="filter-pill" data-typ="ops" onclick="setChartType('network','ops')">OPS</span>
+                            <span class="filter-pill" data-typ="icd" onclick="setChartType('network','icd')">ICD</span>
+                            <span class="filter-pill" data-typ="gop" onclick="setChartType('network','gop')">GOP</span>
+                            <span class="filter-pill" data-typ="pzn" onclick="setChartType('network','pzn')">PZN</span>
+                            <span class="filter-pill" data-typ="drg" onclick="setChartType('network','drg')">DRG</span>
+                            <span class="filter-pill" data-typ="sonstige" onclick="setChartType('network','sonstige')">Sonstige</span>
+                        </div>
+                        <div id="chart-network"></div>
+                    </div>
                 </div>
             </div>
 
@@ -139,7 +182,30 @@
         </div>
     </div>
 
+    <!-- Sankey Modal -->
+    <div class="modal-overlay hidden" id="sankey-modal">
+        <div class="modal" style="max-width: 1000px;">
+            <div class="modal-header">
+                <h2 id="sankey-modal-title">Code-Sharing</h2>
+                <button class="modal-close" onclick="closeSankeyModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="sankey-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- Chord Fullscreen Modal -->
+    <div class="modal-overlay hidden" id="chord-fullscreen-modal">
+        <div class="modal" style="max-width: 95vw; max-height: 95vh;">
+            <div class="modal-header">
+                <h2>Code-Ueberlappung zwischen Verfahren</h2>
+                <button class="modal-close" onclick="closeChordFullscreen()">&times;</button>
+            </div>
+            <div class="modal-body" id="chord-fullscreen-body"></div>
+        </div>
+    </div>
+
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12/dist/d3-sankey.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
