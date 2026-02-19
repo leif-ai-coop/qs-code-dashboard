@@ -6,12 +6,14 @@ let CURRENT_YEAR = 2025;
 const AVAILABLE_YEARS = [2025];
 const PAGE_SIZE = 100;
 const ALL_CODE_TYPES = ['ops', 'icd', 'gop', 'pzn', 'drg', 'sonstige'];
+const COMBO_CODE_RE = /^\d-\d{2,3}\.[0-9a-z]+[A-Z]\d/i;
 
 // === STATE ===
 const state = {
     kontext: 'Alle',
     quelle: 'Alle',
     deqs: true,
+    kombiExclude: true,
     sortCol: {},
     sortDir: {},
     pages: { listen: 1, code: 1 },
@@ -100,6 +102,10 @@ function isDeqs(name) {
     return name.startsWith('QS ');
 }
 
+function isComboCode(code) {
+    return COMBO_CODE_RE.test(code);
+}
+
 // Reverse map: module name -> verfahren name
 let MODULE_TO_VERF = {};
 
@@ -129,7 +135,8 @@ function passesGlobalFilter(item) {
 }
 
 // Check if a code passes global filters (codes have array kontext/quelle)
-function codePassesFilter(cData) {
+function codePassesFilter(cData, code) {
+    if (state.kombiExclude && code && isComboCode(code)) return false;
     if (state.kontext !== 'Alle') {
         const k = cData.kontext;
         if (Array.isArray(k) && !k.includes(state.kontext)) return false;
@@ -261,6 +268,15 @@ function setupFilters() {
         const btn = $('#deqs-toggle');
         btn.classList.toggle('active', state.deqs);
         btn.textContent = state.deqs ? 'An' : 'Aus';
+        updateAll();
+    });
+
+    // Kombi toggle
+    $('#kombi-toggle').addEventListener('click', () => {
+        state.kombiExclude = !state.kombiExclude;
+        const btn = $('#kombi-toggle');
+        btn.classList.toggle('active', state.kombiExclude);
+        btn.textContent = state.kombiExclude ? 'An' : 'Aus';
         updateAll();
     });
 
@@ -406,7 +422,10 @@ function renderStats() {
     const fVerf = Object.entries(DATA.verfahren).filter(([name]) => !state.deqs || isDeqs(name));
     const fMod = Object.entries(DATA.module).filter(([, m]) => passesGlobalFilter(m));
     const fListen = LISTEN_FLAT.filter(l => passesGlobalFilter(l));
-    const fCodes = CODES_FLAT.filter(c => passesGlobalFilter(c));
+    const fCodes = CODES_FLAT.filter(c => {
+        if (state.kombiExclude && isComboCode(c.code)) return false;
+        return passesGlobalFilter(c);
+    });
 
     const opsCodes = fCodes.filter(c => c.codeTyp === 'OPS').length;
     const icdCodes = fCodes.filter(c => c.codeTyp === 'ICD').length;
@@ -652,6 +671,7 @@ function renderCodeTable() {
     const qFilter = $('#code-quelle-filter').value;
 
     let rows = CODES_FLAT.filter(c => {
+        if (state.kombiExclude && isComboCode(c.code)) return false;
         if (state.quelle !== 'Alle' && Array.isArray(c.quelle) && !c.quelle.includes(state.quelle)) return false;
         if (state.kontext !== 'Alle' && Array.isArray(c.kontext) && !c.kontext.includes(state.kontext)) return false;
         if (state.deqs && c.verfahren) {
@@ -814,7 +834,7 @@ function computeVerfahrenOverlap(typeFilter) {
     const typesToCheck = typeFilter ? [typeFilter] : ALL_CODE_TYPES;
     for (const ct of typesToCheck) {
         for (const [code, cData] of Object.entries(DATA.codes[ct] || {})) {
-            if (!codePassesFilter(cData)) continue;
+            if (!codePassesFilter(cData, code)) continue;
             const verfs = new Set();
             for (const u of (cData.verwendung || [])) {
                 if (!verfSizes.hasOwnProperty(u.verfahren)) continue;
@@ -882,7 +902,7 @@ function renderStackedBar() {
 
     for (const ct of ALL_CODE_TYPES) {
         for (const [code, cData] of Object.entries(DATA.codes[ct] || {})) {
-            if (!codePassesFilter(cData)) continue;
+            if (!codePassesFilter(cData, code)) continue;
             const counted = new Set();
             for (const u of (cData.verwendung || [])) {
                 if (!verfCounts[u.verfahren]) continue;
@@ -1269,7 +1289,7 @@ function renderSankey() {
         const label = ct.toUpperCase();
         distinctPerType[label] = new Set();
         for (const [code, cData] of Object.entries(DATA.codes[ct] || {})) {
-            if (!codePassesFilter(cData)) continue;
+            if (!codePassesFilter(cData, code)) continue;
             let inClicked = false;
             const others = new Set();
             for (const u of (cData.verwendung || [])) {
@@ -1420,7 +1440,7 @@ function showSankeyCodes(side, name) {
     if (side === 'left') {
         const ct = name.toLowerCase();
         for (const [code, cData] of Object.entries(DATA.codes[ct] || {})) {
-            if (!codePassesFilter(cData)) continue;
+            if (!codePassesFilter(cData, code)) continue;
             let inSource = false;
             const roles = new Set();
             const quellen = new Set();
@@ -1453,7 +1473,7 @@ function showSankeyCodes(side, name) {
         const targetVerf = name;
         for (const ct of typesToShow) {
             for (const [code, cData] of Object.entries(DATA.codes[ct] || {})) {
-                if (!codePassesFilter(cData)) continue;
+                if (!codePassesFilter(cData, code)) continue;
                 let inSource = false;
                 let inTarget = false;
                 const roles = new Set();
