@@ -624,7 +624,10 @@ function renderCodeTable() {
         const g = c.katalog?.gueltigkeit;
         if (!g) return false;
         const primaryYear = String(CURRENT_YEAR);
-        return g[primaryYear] === false;
+        if (g[primaryYear] !== false) return false;
+        // Exclude OPS+ICD combination codes (e.g. "5-349.3T81.4") — they never exist as single codes
+        if (c.codeTyp === 'OPS' && /^\d-\d{2,3}\.[0-9a-z]+[A-Z]\d/i.test(c.code)) return false;
+        return true;
     });
 
     const sortKey = state.sortCol.code || 'code';
